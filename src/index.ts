@@ -1,26 +1,40 @@
-import { NativeModulesProxy, EventEmitter, Subscription } from 'expo-modules-core';
+import {
+  requireNativeModule,
+  EventEmitter,
+  Subscription,
+} from "expo-modules-core";
 
-// Import the native module. On web, it will be resolved to TestModule.web.ts
-// and on native platforms to TestModule.ts
-import TestModule from './TestModule';
-import TestModuleView from './TestModuleView';
-import { ChangeEventPayload, TestModuleViewProps } from './TestModule.types';
-
-// Get the native constant value.
-export const PI = TestModule.PI;
+import TestModule from "./TestModule";
 
 export function hello(): string {
   return TestModule.hello();
 }
-
-export async function setValueAsync(value: string) {
-  return await TestModule.setValueAsync(value);
+export function loadSound(uri: string): Promise<string> {
+  return TestModule.loadSound(uri);
+}
+export function pauseSound(): void {
+  return TestModule.pauseSound();
+}
+export function playSound(): void {
+  return TestModule.playSound();
+}
+export function reset(): void {
+  return TestModule.reset();
+}
+export function getDuration(): number {
+  return TestModule.getDuration();
 }
 
-const emitter = new EventEmitter(TestModule ?? NativeModulesProxy.TestModule);
-
-export function addChangeListener(listener: (event: ChangeEventPayload) => void): Subscription {
-  return emitter.addListener<ChangeEventPayload>('onChange', listener);
+export function getCurrentPosition(): number {
+  return TestModule.getCurrentPosition();
 }
 
-export { TestModuleView, TestModuleViewProps, ChangeEventPayload };
+const AudioModule = requireNativeModule("TestModule");
+const emitter = new EventEmitter(AudioModule);
+
+export function addOnPreparedListener(listener: (event) => void): Subscription {
+  return emitter.addListener("onPrepared", listener);
+}
+export function addonDurationListener(listener: (event) => void): Subscription {
+  return emitter.addListener("onDuration", listener);
+}
