@@ -35,6 +35,21 @@ const emitter = new EventEmitter(AudioModule);
 export function addOnPreparedListener(listener: (event) => void): Subscription {
   return emitter.addListener("onPrepared", listener);
 }
-export function addonDurationListener(listener: (event) => void): Subscription {
+
+export function onPositionChanged(
+  listener: (event: { position: number }) => void
+): Subscription {
+  return emitter.addListener("onPosition", listener);
+}
+
+export function onCustomEvent(
+  listener: (event: { custom: string }) => void
+): Subscription {
+  return emitter.addListener("onCustomEvent", listener);
+}
+
+export function onDurationChanged(
+  listener: (event: { duration: number }) => void
+): Subscription {
   return emitter.addListener("onDuration", listener);
 }

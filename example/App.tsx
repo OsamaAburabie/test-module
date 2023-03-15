@@ -27,12 +27,35 @@ const useDuration = () => {
 };
 
 const Data = () => {
-  const position = usePosition(1);
-  const duration = useDuration();
+  const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [state, setState] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onPositionChangedListener = TestModule.onPositionChanged((ev) => {
+      setPosition(ev.position);
+    });
+
+    const onDurationChangedListener = TestModule.onDurationChanged((ev) => {
+      setDuration(ev.duration);
+    });
+
+    const onStateChangedListener = TestModule.onCustomEvent((ev) => {
+      setState(ev.custom);
+    });
+
+    return () => {
+      onPositionChangedListener.remove();
+      onDurationChangedListener.remove();
+      onStateChangedListener.remove();
+    };
+  }, []);
+
   return (
     <View>
       <Text>Position: {position}</Text>
       <Text>Duration: {duration}</Text>
+      <Text>State: {state}</Text>
     </View>
   );
 };
@@ -41,7 +64,6 @@ export default function App() {
   return (
     <View style={styles.container}>
       <Data />
-      <Text>{TestModule.hello()}</Text>
 
       <Button
         title="Load"
