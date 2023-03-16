@@ -3,18 +3,25 @@ package expo.modules.testmodule
 import android.media.MediaPlayer
 import android.net.Uri
 import androidx.core.net.toUri
+import com.google.android.exoplayer2.ExoPlayer
+import com.google.android.exoplayer2.MediaItem
+import com.google.android.exoplayer2.Player
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import java.util.Timer
-import java.util.TimerTask
+import java.util.*
 
 
 const val AUDIO_PREPARED_EVENT_NAME = "onPrepared"
 const val AUDIO_DURATION_EVENT_NAME = "onDuration"
 const val AUDIO_POSITION_EVENT_NAME = "onPosition"
 const val CUSTOM_EVENT_NAME = "onCustomEvent"
+const val AUDIO_STATE_CHANGE = "onStateChange"
+const val AUDIO_IS_PLAYING_CHANGE = "onIsPlayingChange"
 
-class MediaPlayerEventListener(private val mediaPlayer: MediaPlayer, private val onPositionChanged: ((Int) -> Unit)? = null) {
+class MediaPlayerEventListener(
+    private val mediaPlayer: MediaPlayer,
+    private val onPositionChanged: ((Int) -> Unit)? = null
+) {
     private var timer: Timer? = null
 
     init {
@@ -27,7 +34,9 @@ class MediaPlayerEventListener(private val mediaPlayer: MediaPlayer, private val
 
     fun pause() {
         pauseTimer()
-    }   fun resume() {
+    }
+
+    fun resume() {
         resumeTimer()
     }
 
@@ -53,74 +62,82 @@ class MediaPlayerEventListener(private val mediaPlayer: MediaPlayer, private val
         startTimer()
     }
 }
+
 class TestModule : Module() {
-    private val mediaPlayer = MediaPlayer()
-    private var mediaPlayerEventListener: MediaPlayerEventListener? = null
+    private var mPlayer: ExoPlayer? = null
 
     override fun definition() = ModuleDefinition {
         Name("TestModule")
 
-        Events(AUDIO_PREPARED_EVENT_NAME, AUDIO_DURATION_EVENT_NAME, AUDIO_POSITION_EVENT_NAME, CUSTOM_EVENT_NAME)
+        Events(
+            AUDIO_PREPARED_EVENT_NAME,
+            AUDIO_DURATION_EVENT_NAME,
+            AUDIO_POSITION_EVENT_NAME,
+            CUSTOM_EVENT_NAME,
+            AUDIO_STATE_CHANGE,
+            AUDIO_IS_PLAYING_CHANGE
+        )
 
         OnStartObserving {
-            mediaPlayer.setOnPreparedListener {
-                sendEvent(AUDIO_PREPARED_EVENT_NAME)
+            mPlayer?.addListener(object : Player.Listener {
+                override fun onPlaybackStateChanged(state: Int) {
+                    sendEvent(AUDIO_STATE_CHANGE, mapOf("state" to state))
                 }
+            })
 
-            mediaPlayerEventListener = MediaPlayerEventListener(mediaPlayer) { position ->
-                // Send an event when the position changes
-                println("Position changed: $position")
-                sendEvent(AUDIO_POSITION_EVENT_NAME, mapOf("position" to position))
-            }
+            mPlayer?.addListener(object : Player.Listener {
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    sendEvent(AUDIO_IS_PLAYING_CHANGE, mapOf("isPlaying" to isPlaying))
+                }
+            })
         }
 
         OnStopObserving {
-            mediaPlayer.setOnPreparedListener(null)
-            mediaPlayerEventListener?.cancel()
-            mediaPlayerEventListener = null
+            mPlayer?.removeListener(object : Player.Listener {})
         }
 
-        AsyncFunction("loadSound") { uri: String ->
-            val myUri: Uri = uri.toUri()
-            mediaPlayer.apply {
-                setDataSource(appContext.reactContext!!.applicationContext, myUri)
-                prepare()
-                start()
-
-                // Send an event when the duration changes
-                sendEvent(AUDIO_DURATION_EVENT_NAME, mapOf("duration" to duration))
-                sendEvent(CUSTOM_EVENT_NAME, mapOf("custom" to "playing"))
+        Function("init") {
+            // Create a new instance of the player if it's not created yet
+            if (mPlayer == null) {
+                mPlayer = ExoPlayer.Builder(appContext.reactContext!!.applicationContext).build()
             }
-
-            return@AsyncFunction "Sound loaded"
         }
+
+        Function("loadSound") { uri: String ->
+            // Create a media item from the URI
+            val mediaItem = MediaItem.Builder()
+                .setUri(uri)
+                .build()
+            mPlayer?.setMediaItem(mediaItem)
+
+            // Prepare the player
+            mPlayer?.prepare()
+
+            mPlayer?.play()
+        }
+
 
         Function("pauseSound") {
-            sendEvent(CUSTOM_EVENT_NAME, mapOf("custom" to "paused"))
-            mediaPlayer.pause()
-            mediaPlayerEventListener?.pause()
+            mPlayer?.pause()
         }
 
         Function("playSound") {
-            sendEvent(CUSTOM_EVENT_NAME, mapOf("custom" to "playing"))
-            mediaPlayer.start()
-            mediaPlayerEventListener?.resume()
-
-            // Create a new instance of the custom event listener and pass in the media player
+            mPlayer?.play()
         }
 
         Function("reset") {
-            sendEvent(CUSTOM_EVENT_NAME, mapOf("custom" to "reset"))
-            sendEvent(AUDIO_DURATION_EVENT_NAME, mapOf("id" to 0))
-            mediaPlayer.reset()
+            mPlayer?.release()
+        }
+
+        Function("stop") {
+            mPlayer?.stop()
         }
 
         Function("getDuration") {
-            return@Function mediaPlayer.duration
+           return@Function mPlayer?.duration
         }
-
-        Function("getCurrentPosition") {
-            return@Function mediaPlayer.currentPosition
+        Function("getPosition") {
+           return@Function mPlayer?.currentPosition
         }
 
     }

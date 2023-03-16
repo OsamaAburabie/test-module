@@ -6,10 +6,21 @@ import {
 
 import TestModule from "./TestModule";
 
-export function hello(): string {
-  return TestModule.hello();
+const AudioModule = requireNativeModule("TestModule");
+const emitter = new EventEmitter(AudioModule);
+
+export enum State {
+  STATE_IDLE = 1,
+  STATE_BUFFERING = 2,
+  STATE_READY = 3,
+  STATE_ENDED = 4,
 }
-export function loadSound(uri: string): Promise<string> {
+
+export function init(): void {
+  return TestModule.init();
+}
+
+export function loadSound(uri: string): void {
   return TestModule.loadSound(uri);
 }
 export function pauseSound(): void {
@@ -21,35 +32,26 @@ export function playSound(): void {
 export function reset(): void {
   return TestModule.reset();
 }
+export function stop(): void {
+  return TestModule.stop();
+}
 export function getDuration(): number {
   return TestModule.getDuration();
 }
-
-export function getCurrentPosition(): number {
-  return TestModule.getCurrentPosition();
+export function getPosition(): number {
+  return TestModule.getPosition();
 }
 
-const AudioModule = requireNativeModule("TestModule");
-const emitter = new EventEmitter(AudioModule);
-
-export function addOnPreparedListener(listener: (event) => void): Subscription {
-  return emitter.addListener("onPrepared", listener);
-}
-
-export function onPositionChanged(
-  listener: (event: { position: number }) => void
+//Events
+export function onStateChange(
+  listener: (event: { state: State }) => void
 ): Subscription {
-  return emitter.addListener("onPosition", listener);
+  return emitter.addListener("onStateChange", listener);
+}
+export function onIsPlayingChange(
+  listener: (event: { isPlaying: boolean }) => void
+): Subscription {
+  return emitter.addListener("onIsPlayingChange", listener);
 }
 
-export function onCustomEvent(
-  listener: (event: { custom: string }) => void
-): Subscription {
-  return emitter.addListener("onCustomEvent", listener);
-}
-
-export function onDurationChanged(
-  listener: (event: { duration: number }) => void
-): Subscription {
-  return emitter.addListener("onDuration", listener);
-}
+// Hooks
